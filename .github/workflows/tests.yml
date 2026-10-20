@@ -1,0 +1,39 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unittest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          # requirements.txt pins numpy 1.26.4 / pandas 2.2.2, which have no Python 3.13 wheels;
+          # the README documents Python 3.12.
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+      - name: Download VADER lexicon
+        # stdin from /dev/null so a failed download exits instead of waiting at the retry prompt.
+        run: |
+          python -m nltk.downloader vader_lexicon < /dev/null
+          python -c "import nltk; nltk.data.find('sentiment/vader_lexicon.zip')"
+      - name: Test
+        run: python -m unittest discover -s tests -v
+      - name: Demo (synthetic sample data)
+        run: python main.py --mode demo
+      - name: Backtest (bundled data, offline)
+        run: python main.py --mode backtest --data-dir data

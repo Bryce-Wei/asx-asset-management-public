@@ -26,7 +26,7 @@
 
 ## 目录
 
-[中文报告 PDF](docs/project-summary-zh.pdf) · [中文版报告 Markdown](docs/project-summary-zh.md) · [原始报告 PDF](docs/project-summary.pdf) · [工作站 #5：滚动回测](#工作站-5滚动回测) · [运行方法](#运行方法) · [项目结构](#项目结构)
+[中文报告 PDF](docs/project-summary-zh.pdf) · [中文版报告 Markdown](docs/project-summary-zh.md) · [原始报告 PDF](docs/project-summary.pdf) · [工作站 #5：滚动回测](#工作站-5滚动回测) · [运行方法](#运行方法) · [项目结构](#项目结构) · [许可](#许可)
 
 下面是我的完整中文项目报告。A、B 两部分保留早期报告的全部 16 张图片和 4 处批注，并用“研究说明”区分当时的判断与当前解释；C 部分是新增的工作站 #5，记录滚动回测的数据、方法和结果。
 
@@ -667,8 +667,12 @@ python experiments/arima_forecast.py --help
 ```text
 asx-asset-management/
 ├── README.md
+├── LICENSE                         # Apache License 2.0，适用范围见“许可”
 ├── requirements.txt
 ├── .gitignore
+├── .github/
+│   └── workflows/
+│       └── tests.yml               # GitHub Actions：单元测试、演示与滚动回测
 ├── main.py                         # 主入口，按顺序调用各模块
 ├── config.py                       # 文件路径、模型参数与风险设置
 ├── asset_management/
@@ -712,3 +716,9 @@ asx-asset-management/
 ```
 
 我在 [数据说明](data/README.md) 中记录输入字段，在 [方法说明](docs/methodology.md) 中记录当前实现的假设与局限。
+
+## 许可
+
+我编写的代码采用 [Apache License 2.0](LICENSE)。该许可只适用于代码，不适用于 `data/` 中的四份原始输入：Bloomberg 导出的股票价格 `ASX200top10.xlsx`、新闻记录 `news_dump.json`、客户资料 `Client_Details.xlsx` 和宏观指标 `Economic_Indicators.xlsx`。
+
+这四份文件属于第三方或课程提供的数据，权利归原权利人所有，Apache License 2.0 不授予这些数据的任何权利；使用或再分发前需确认原始来源的条款。`data/sample/` 中的模拟样本由我构造，不包含真实股票、客户或新闻记录。
