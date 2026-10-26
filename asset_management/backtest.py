@@ -296,12 +296,14 @@ def simulate(prices, targets, cost_bps, start_date):
     )
 
 
-def performance_metrics(nav, rebalances, settings):
+def performance_metrics(nav, rebalances, settings, risk_free=None):
     """计算各版本的收益、风险、回撤、换手及相对等权基准的超额表现。
 
     nav 为日期 × 版本的净值表，初始资金为 1；rebalances 为 run_backtest
     生成的调仓记录。波动率与夏普比率按 annualization 个交易日年化，复合
-    年化收益按自然日折算年数。夏普比率扣除 backtest_risk_free_rate；
+    年化收益按自然日折算年数。夏普比率为日超额收益（日收益减当日无风险
+    收益）的均值除以其标准差再年化：risk_free 为按净值日期给出的年化利率
+    （小数），逐日换算后扣除；未提供时用常数 backtest_risk_free_rate。
     超额收益与信息比率以同期等权组合为基准。净值表含大盘列（MARKET）时，
     各版本另报告相对大盘的年化超额收益、跟踪误差和信息比率（列名以
     _vs_asx200 结尾），计算方式相同。首笔建仓不计入平均换手。
@@ -312,18 +314,25 @@ def performance_metrics(nav, rebalances, settings):
     daily = nav.pct_change().iloc[1:]
     if years <= 0 or len(daily) < 2:
         raise ValueError("Backtest period is too short for performance metrics.")
-    rf_daily = (1.0 + float(cfg["backtest_risk_free_rate"])) ** (1.0 / periods) - 1.0
+    if risk_free is not None:
+        rates = pd.Series(risk_free, dtype=float).reindex(daily.index)
+        if rates.isna().any():
+            raise ValueError("Risk-free rates must cover every NAV date.")
+    else:
+        rates = pd.Series(float(cfg["backtest_risk_free_rate"]), index=daily.index)
+    rf_daily = (1.0 + rates) ** (1.0 / periods) - 1.0
     rows = {}
     for name in nav.columns:
         returns = daily[name]
         volatility = returns.std(ddof=1)
+        excess = returns - rf_daily
         trades = rebalances.loc[(rebalances["variant"] == name) & (rebalances["status"] == "rebalanced")]
         regular = trades.loc[~trades["initial"].astype(bool)]
         row = {
             "total_return": nav[name].iloc[-1] - 1.0,
             "cagr": nav[name].iloc[-1] ** (1.0 / years) - 1.0,
             "annual_volatility": volatility * np.sqrt(periods),
-            "sharpe": (returns.mean() - rf_daily) / volatility * np.sqrt(periods) if volatility > 0 else np.nan,
+            "sharpe": excess.mean() / excess.std(ddof=1) * np.sqrt(periods) if volatility > 0 else np.nan,
             "max_drawdown": float((nav[name] / nav[name].cummax() - 1.0).min()),
             "avg_turnover": regular["turnover"].mean(),
             "annual_turnover": regular["turnover"].sum() / years,
@@ -346,8 +355,13 @@ def performance_metrics(nav, rebalances, settings):
     return pd.DataFrame.from_dict(rows, orient="index").rename_axis("variant")
 
 
-def run_backtest(inputs, settings, market_prices=None):
+def run_backtest(inputs, settings, market_prices=None, risk_free=None):
     """逐月执行信号计算和调仓模拟，返回报告表格、绩效指标和运行摘要。
+
+    risk_free 为可选的无风险利率记录（以生效日为索引、小数表示的年化
+    利率，如 RBA 现金利率目标）：每个净值日期取当日已生效的利率，用于夏普
+    比率；首个生效日须不晚于首个净值日期。未提供时使用常数
+    backtest_risk_free_rate。
 
     market_prices 为可选的大盘价格（单列 DataFrame 或 Series，如 ASX 200
     指数 ETF 的复权收盘价），须覆盖整个回测期：在首个成交日按收盘价买入
@@ -380,6 +394,10 @@ def run_backtest(inputs, settings, market_prices=None):
         # 首尾都须有报价；中间个别缺失按最近价格估值，与股票的处理一致。
         if market.empty or pd.isna(market.iloc[0]) or pd.isna(market.iloc[-1]):
             raise ValueError("Market prices must cover the whole backtest period.")
+    if risk_free is not None:
+        changes = pd.Series(risk_free, dtype=float).sort_index()
+        if changes.empty or changes.index[0] > start or changes.isna().any():
+            raise ValueError("Risk-free rates must be complete and start on or before the first execution date.")
     names = [BENCHMARK, *VARIANTS]
     targets = {name: {} for name in names}
     period_rows, status_rows, signal_frames, weight_rows = [], [], [], []
@@ -425,7 +443,11 @@ def run_backtest(inputs, settings, market_prices=None):
         columns=["execution_date", "turnover", "cost", "initial", "variant"])
     rebalances = pd.DataFrame(status_rows).merge(trades, on=["execution_date", "variant"], how="left")
     rebalances["initial"] = rebalances["initial"].astype("boolean").fillna(False).astype(bool)
-    metrics = performance_metrics(nav, rebalances, cfg)
+    rates = None
+    if risk_free is not None:
+        # 每个净值日期取当日已生效的最近一次利率。
+        rates = changes.reindex(changes.index.union(nav.index)).ffill().reindex(nav.index)
+    metrics = performance_metrics(nav, rebalances, cfg, rates)
     periods = pd.DataFrame(period_rows).set_index("signal_date")
     count = len(periods)
     active = {
@@ -445,6 +467,7 @@ def run_backtest(inputs, settings, market_prices=None):
         "overlay_coverage": {name: f"{value}/{count}" for name, value in active.items()},
         "base_failures": int((periods["base_status"] != "ok").sum()),
         "market_benchmark": MARKET if market_prices is not None else None,
+        "risk_free_rate_mean": float(rates.mean()) if rates is not None else float(cfg["backtest_risk_free_rate"]),
     }
     tables = {
         "backtest_nav": nav,

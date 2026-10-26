@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from asset_management.load_data import PRICE_FILE, load_price_table
+from asset_management.load_data import PRICE_FILE, load_cash_rate, load_price_table
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "fetch_yahoo_prices.py"
 _spec = importlib.util.spec_from_file_location("fetch_yahoo_prices", SCRIPT)
@@ -105,6 +105,18 @@ class PriceTableTests(unittest.TestCase):
                 load_price_table(self.write(folder, "date,A\n2020-01-01,1\n2020-01-02,0\n"))
             with self.assertRaises(FileNotFoundError):
                 load_price_table(Path(folder) / "absent.csv")
+
+    def test_cash_rate_percent_becomes_sorted_decimal(self):
+        """现金利率按百分数存储，读取后为小数并按生效日升序。"""
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "rates.csv"
+            path.write_text("effective_date,cash_rate_target\n2020-03-20,0.25\n2019-06-05,1.25\n", encoding="utf-8")
+            rates = load_cash_rate(path)
+            path.write_text("date,rate\n2020-01-01,1\n", encoding="utf-8")
+            with self.assertRaises(ValueError):
+                load_cash_rate(path)
+        self.assertEqual(list(rates.index), list(pd.to_datetime(["2019-06-05", "2020-03-20"])))
+        np.testing.assert_allclose(rates.to_numpy(), [0.0125, 0.0025])
 
     def test_keeps_missing_values_and_sorts_dates(self):
         with tempfile.TemporaryDirectory() as folder:

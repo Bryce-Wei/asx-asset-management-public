@@ -1,0 +1,13 @@
+{
+  "source": "Reserve Bank of Australia, cash rate target",
+  "url": "https://www.rba.gov.au/statistics/cash-rate/",
+  "unit": "percent per annum",
+  "downloaded_utc": "2026-10-26T18:37:31+00:00",
+  "rows": 402,
+  "date_range": [
+    "1990-01-23",
+    "2026-09-30"
+  ],
+  "csv_file": "RBA_cash_rate.csv",
+  "csv_sha256": "8cfb182fdeceb265b0c2c4a9061eade9c19542c7726675f5d577481415f0f447"
+}

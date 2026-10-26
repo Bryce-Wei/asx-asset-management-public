@@ -1,6 +1,6 @@
 # 数据放置与格式
 
-我将四份原始输入放在 `data/` 目录中，随仓库公开；将便于检查程序流程的模拟样本放在 `data/sample/`。价格文件为 Yahoo Finance 的复权收盘价（含分红）；新闻标题通过纽约时报 API 获取；客户资料为模拟数据，不含真实客户信息；宏观指标由课程提供。运行生成的结果不提交。
+我将四份原始输入放在 `data/` 目录中，随仓库公开；将便于检查程序流程的模拟样本放在 `data/sample/`。价格文件为 Yahoo Finance 的复权收盘价（含分红）；新闻标题通过纽约时报 API 获取；客户资料为模拟数据，不含真实客户信息；宏观指标由课程提供。滚动回测另用 ASX 200 指数 ETF（STW）的价格作为比较基准，用澳洲储备银行（RBA）的现金利率作为无风险利率。运行生成的结果不提交。
 
 ## 完整分析输入
 
@@ -13,6 +13,7 @@
 | `Economic_Indicators.xlsx` | 读取第一张工作表中的 `Monthly Indicators` 区域；列为月份、行为指标，季度指标不参与当前流程 | 月度宏观指标对齐、OLS 回归与调整量计算 |
 | `news_dump.json` | 新闻记录列表，包含 `Equity`、`Source`、`Date/Time`、`Headline` | VADER 标题情绪评分与按股票汇总的权重调整 |
 | `ASX200_STW_yahoo.csv` | 第一列为 `date`，第二列 `STW` 为 ASX 200 指数 ETF 的 Yahoo Finance 复权收盘价，交易日与股票价格相同；用 `python scripts/fetch_yahoo_prices.py --tickers STW --output data/ASX200_STW_yahoo.csv` 生成，同名 `.json` 为下载记录 | 只在滚动回测中使用，作为买入持有的比较基准 |
+| `RBA_cash_rate.csv` | 第一列 `effective_date` 为生效日，第二列 `cash_rate_target` 为现金利率目标（年利率，百分数）；每次议息会议一行，包括维持不变的决定，1990-01-23 至 2026-09-30 共 402 行。用 `python scripts/fetch_rba_cash_rate.py` 从 RBA 网站重新下载，同名 `.json` 记录来源网址、下载时间与文件哈希 | 只在滚动回测中使用：每个交易日取当日已生效的利率作为无风险利率，计算夏普比率；没有这个文件时改用 `backtest_risk_free_rate` 设定的固定利率 |
 
 重新下载价格：`python -m pip install -r scripts/requirements.txt`，再运行 `python scripts/fetch_yahoo_prices.py`。Yahoo 会随新的分红回溯调整整段历史，因此不同时间下载的价格水平可能不同，但相邻日期的收益率不变。早期版本使用的 Bloomberg 工作簿 `ASX200top10.xlsx`（`PX_LAST`，不含分红，并把 38 个 ASX 休市日按前一日价格补齐）不再随仓库提供；持有该文件时，可用 `load_data.load_prices` 读取，对照早期结果。
 
