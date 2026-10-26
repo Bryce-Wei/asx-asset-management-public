@@ -18,13 +18,13 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from asset_management.features import log_returns
-from asset_management.load_data import load_prices
+from asset_management.load_data import PRICE_FILE, load_price_table
 
 
 def run_experiment(data_dir: Path, ticker: str | None, output_dir: Path, train_ratio: float = 0.7) -> dict:
     """以时间顺序划分样本，用训练集拟合 ARIMA 并预测整个留出区间。
 
-    输入来自指定目录的股票价格工作簿；ticker 未给定时取第一只股票。
+    输入来自指定目录的复权价格 CSV（PRICE_FILE）；ticker 未给定时取第一只股票。
     预测对象为该股票相邻有效观测的对数收益，小数 0.01 表示对数价格
     变化 0.01，不是价格点数，也未转换为年化收益。train_ratio 控制
     训练样本比例，取整后至少保留 30 个训练收益和 2 个留出收益。
@@ -44,7 +44,7 @@ def run_experiment(data_dir: Path, ticker: str | None, output_dir: Path, train_r
             "ARIMA requires the optional experiment dependencies. "
             "Install with: python -m pip install -r experiments/requirements.txt"
         ) from exc
-    prices = load_prices(Path(data_dir) / "ASX200top10.xlsx")
+    prices = load_price_table(Path(data_dir) / PRICE_FILE)
     ticker = ticker or str(prices.columns[0])
     if ticker not in prices.columns:
         raise ValueError(f"Unknown ticker {ticker!r}; choose from {', '.join(prices.columns)}.")

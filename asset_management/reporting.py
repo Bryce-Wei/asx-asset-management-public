@@ -62,7 +62,7 @@ def save_reports(
     note = {
         "demo": "DEMO | Synthetic data and fixed illustrative weights.",
         "full": "FULL | Local analysis output; interpretation depends on input data and assumptions.",
-        "backtest": "BACKTEST | Monthly point-in-time walk-forward; price-only returns, "
+        "backtest": "BACKTEST | Monthly point-in-time walk-forward; dividend-adjusted total returns, "
                     "costs and lags as configured.",
     }[mode]
 

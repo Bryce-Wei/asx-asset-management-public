@@ -15,6 +15,9 @@ import numpy as np
 import pandas as pd
 from openpyxl import load_workbook
 
+# 完整模式的价格输入：Yahoo Finance 复权收盘价（含分红），见 scripts/fetch_yahoo_prices.py。
+PRICE_FILE = "ASX200top10_yahoo.csv"
+
 
 def _sheet_rows(path: Path, preferred: str | None, fallback: int) -> list[tuple]:
     """读取首选工作表，不存在时按从零开始的备用位置读取。
@@ -71,6 +74,9 @@ def _date_index(frame: pd.DataFrame, context: str) -> pd.DataFrame:
 
 def load_prices(path: str | Path) -> pd.DataFrame:
     """根据彭博数据的两行表头提取股票 PX_LAST 价格列。
+
+    PX_LAST 不含分红。完整模式已改用 PRICE_FILE 的复权价格；本函数
+    保留给持有原始彭博工作簿、需要对照早期结果的使用者。
 
     第一行包含资产名称，第二行包含字段名称；合并表头后的空白位置
     沿用当前资产分组，只选择 Equity 分组中的 PX_LAST 收盘价字段。
@@ -217,34 +223,45 @@ def load_inputs(raw_dir: str | Path) -> dict[str, pd.DataFrame]:
     """按约定文件名读取完整模式的四类本地输入。
 
     返回字典中的 prices 为日期 × 股票价格，clients 为客户 × 数值
-    特征，news 为逐条新闻记录，indicators 为月份 × 经济指标。
+    特征，news 为逐条新闻记录，indicators 为月份 × 经济指标。价格取
+    PRICE_FILE：由 scripts/fetch_yahoo_prices.py 下载的 Yahoo Finance
+    复权收盘价，已计入现金分红与拆股，收益率因此为总收益口径。
     各读取函数只负责本类数据校验，跨类股票匹配及日期交集由后续模型
     完成。任一文件缺失或格式不合法时立即抛出错误，不返回部分结果。
     """
     raw_dir = Path(raw_dir)
     return {
-        "prices": load_prices(raw_dir / "ASX200top10.xlsx"),
+        "prices": load_price_table(raw_dir / PRICE_FILE),
         "clients": load_clients(raw_dir / "Client_Details.xlsx"),
         "news": load_news(raw_dir / "news_dump.json"),
         "indicators": load_indicators(raw_dir / "Economic_Indicators.xlsx"),
     }
 
 
-def load_sample_prices(sample_dir: str | Path) -> pd.DataFrame:
-    """读取演示用 prices.csv，返回日期升序的资产价格矩阵。
+def load_price_table(path: str | Path, context: str = "Stock prices") -> pd.DataFrame:
+    """读取 date 列加各资产价格列的 CSV，返回日期升序的价格矩阵。
 
     文件必须包含 date 和至少一个资产价格字段；日期转为索引，其余
     字段转为浮点数。此函数验证已观测价格为正，不补齐缺失日期或价格；
     后续收益率步骤继续检查是否存在所有资产共同有效的相邻观测。
-    示例数据与完整模式的工作簿入口分开，便于演示读取和报告生成。
+    ``context`` 用于错误信息，区分完整模式价格与演示样本。
     """
-    path = Path(sample_dir) / "prices.csv"
+    path = Path(path)
     if not path.is_file():
-        raise FileNotFoundError(f"Missing synthetic sample prices: {path}")
+        raise FileNotFoundError(f"Missing {context.lower()}: {path}")
     frame = pd.read_csv(path)
     if "date" not in frame.columns or len(frame.columns) < 2:
-        raise ValueError("Sample prices.csv requires a date column and at least one asset column.")
-    frame = _date_index(_numeric(frame.set_index("date"), "Sample prices"), "Sample prices")
+        raise ValueError(f"{path.name} requires a date column and at least one asset column.")
+    frame = _date_index(_numeric(frame.set_index("date"), context), context)
     if frame.empty or (frame <= 0).any().any():
-        raise ValueError("Sample prices must contain strictly positive observed prices.")
+        raise ValueError(f"{context} must contain strictly positive observed prices.")
     return frame
+
+
+def load_sample_prices(sample_dir: str | Path) -> pd.DataFrame:
+    """读取演示用 prices.csv，返回日期升序的资产价格矩阵。
+
+    规则与 load_price_table 相同；示例数据与完整模式的价格文件分开，
+    便于演示读取和报告生成。
+    """
+    return load_price_table(Path(sample_dir) / "prices.csv", "Synthetic sample prices")
