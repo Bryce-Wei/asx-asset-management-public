@@ -36,7 +36,8 @@ def save_reports(
 
     演示模式只展示传入配置与价格，并注明模拟数据和固定示例权重；
     完整模式还可展示模拟组合、前沿、客户分群和新闻情绪。回测模式读取
-    backtest_nav（日期 × 策略版本的净值），绘制净值与回撤对比图。
+    backtest_nav（日期 × 策略版本的净值），绘制净值与回撤对比图；含大盘列
+    asx200 时只比较完整策略与大盘。
     """
     if mode not in {"demo", "full", "backtest"}:
         raise ValueError("mode must be 'demo', 'full' or 'backtest'")
@@ -203,22 +204,28 @@ def save_reports(
 
     nav = tables.get("backtest_nav")
     if mode == "backtest" and nav is not None and not nav.empty:
-        # 等权基准用虚线，完整策略加粗，其余版本依次取色，便于比较各调整分量的贡献。
+        # 有大盘列（asx200）时只比较完整策略与大盘；否则画出全部版本，
+        # 等权基准用虚线，完整策略加粗，其余版本依次取色。
+        versus_market = {"full", "asx200"}.issubset(nav.columns)
+        if versus_market:
+            nav = nav.loc[:, ["asx200", "full"]]
         palette = iter(["#273B58", "#8A6FB0", "#C66A54", "#5B8C5A", "#B08A3E"])
         styles = {
-            name: {"color": "#93ACBC", "linestyle": "--", "linewidth": 1.6} if name == "equal_weight"
+            name: {"color": "#93ACBC", "linestyle": "--", "linewidth": 1.6} if name in {"equal_weight", "asx200"}
             else {"color": "#267F86", "linewidth": 2.4} if name == "full"
             else {"color": next(palette, "#526175"), "linewidth": 1.4}
             for name in nav.columns
         }
+        labels = {"full": "Full strategy", "asx200": "ASX 200 (STW ETF, dividends reinvested)"} if versus_market else {}
+        subject = "full strategy vs ASX 200" if versus_market else "net asset value"
         for filename, frame, ylabel, title in (
-            ("backtest_nav.png", nav, "Net asset value (start = 1)", "Walk-forward backtest: net asset value"),
+            ("backtest_nav.png", nav, "Net asset value (start = 1)", f"Walk-forward backtest: {subject}"),
             ("backtest_drawdown.png", nav / nav.cummax() - 1.0, "Drawdown from previous peak",
              "Walk-forward backtest: drawdown"),
         ):
             fig, ax = plt.subplots(figsize=(9.5, 5.2))
             for name in frame.columns:
-                ax.plot(frame.index, frame[name], label=name, **styles[name])
+                ax.plot(frame.index, frame[name], label=labels.get(name, name), **styles[name])
             if filename == "backtest_drawdown.png":
                 ax.yaxis.set_major_formatter(PercentFormatter(1))
             ax.set_ylabel(ylabel)

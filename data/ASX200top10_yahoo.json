@@ -15,19 +15,19 @@
       "FPH.AX"
     ],
     "start": "2015-03-30",
-    "end_inclusive": "2020-04-02"
+    "end_inclusive": "2020-07-31"
   },
-  "rows": 1271,
+  "rows": 1354,
   "date_range": [
     "2015-03-30",
-    "2020-04-02"
+    "2020-07-31"
   ],
   "tickers": {
     "BHP": {
       "first": "2015-03-30",
-      "last": "2020-04-02",
+      "last": "2020-07-31",
       "missing": 0,
-      "close_rows": 1271,
+      "close_rows": 1354,
       "dividends": [
         {
           "date": "2015-09-09",
@@ -78,9 +78,9 @@
     },
     "CSL": {
       "first": "2015-03-30",
-      "last": "2020-04-02",
+      "last": "2020-07-31",
       "missing": 0,
-      "close_rows": 1271,
+      "close_rows": 1354,
       "dividends": [
         {
           "date": "2015-09-07",
@@ -127,9 +127,9 @@
     },
     "RIO": {
       "first": "2015-03-30",
-      "last": "2020-04-02",
+      "last": "2020-07-31",
       "missing": 0,
-      "close_rows": 1271,
+      "close_rows": 1354,
       "dividends": [
         {
           "date": "2015-08-12",
@@ -176,9 +176,9 @@
     },
     "CBA": {
       "first": "2015-03-30",
-      "last": "2020-04-02",
+      "last": "2020-07-31",
       "missing": 0,
-      "close_rows": 1271,
+      "close_rows": 1354,
       "dividends": [
         {
           "date": "2015-08-18",
@@ -225,9 +225,9 @@
     },
     "WOW": {
       "first": "2015-03-30",
-      "last": "2020-04-02",
+      "last": "2020-07-31",
       "missing": 0,
-      "close_rows": 1271,
+      "close_rows": 1354,
       "dividends": [
         {
           "date": "2015-09-09",
@@ -274,9 +274,9 @@
     },
     "WES": {
       "first": "2015-03-30",
-      "last": "2020-04-02",
+      "last": "2020-07-31",
       "missing": 0,
-      "close_rows": 1271,
+      "close_rows": 1354,
       "dividends": [
         {
           "date": "2015-08-25",
@@ -323,9 +323,9 @@
     },
     "TLS": {
       "first": "2015-03-30",
-      "last": "2020-04-02",
+      "last": "2020-07-31",
       "missing": 0,
-      "close_rows": 1271,
+      "close_rows": 1354,
       "dividends": [
         {
           "date": "2015-08-25",
@@ -372,9 +372,9 @@
     },
     "AMC": {
       "first": "2015-03-30",
-      "last": "2020-04-02",
+      "last": "2020-07-31",
       "missing": 0,
-      "close_rows": 1271,
+      "close_rows": 1354,
       "dividends": [
         {
           "date": "2015-09-07",
@@ -423,15 +423,19 @@
         {
           "date": "2020-03-03",
           "value": 0.855
+        },
+        {
+          "date": "2020-05-27",
+          "value": 0.885
         }
       ],
       "splits": []
     },
     "BXB": {
       "first": "2015-03-30",
-      "last": "2020-04-02",
+      "last": "2020-07-31",
       "missing": 0,
-      "close_rows": 1271,
+      "close_rows": 1354,
       "dividends": [
         {
           "date": "2015-09-09",
@@ -482,9 +486,9 @@
     },
     "FPH": {
       "first": "2015-03-30",
-      "last": "2020-04-02",
+      "last": "2020-07-31",
       "missing": 0,
-      "close_rows": 1271,
+      "close_rows": 1354,
       "dividends": [
         {
           "date": "2015-06-17",
@@ -525,6 +529,10 @@
         {
           "date": "2019-12-06",
           "value": 0.114816
+        },
+        {
+          "date": "2020-07-06",
+          "value": 0.146274
         }
       ],
       "splits": []
@@ -535,11 +543,11 @@
     {
       "date": "2017-01-23",
       "ticker": "BXB",
-      "return": -0.157981
+      "return": -0.15798
     }
   ],
   "yfinance_version": "1.1.0",
-  "downloaded_utc": "2026-10-26T13:58:42+00:00",
+  "downloaded_utc": "2026-10-26T14:45:24+00:00",
   "csv_file": "ASX200top10_yahoo.csv",
-  "csv_sha256": "a01681f95c7abef188b003c53db9798a690f7f95bd7c1b595de4bf22cde00bda"
+  "csv_sha256": "6d3b9bb7c35c9515648a2a14679be6cd142d14e31d1459fbd294f95116e689f2"
 }

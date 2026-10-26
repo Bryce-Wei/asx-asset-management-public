@@ -1,0 +1,109 @@
+{
+  "source": "Yahoo Finance via yfinance",
+  "field": "Adj Close (adjusted for cash dividends and splits)",
+  "requested": {
+    "tickers": [
+      "STW.AX"
+    ],
+    "start": "2015-03-30",
+    "end_inclusive": "2020-07-31"
+  },
+  "rows": 1354,
+  "date_range": [
+    "2015-03-30",
+    "2020-07-31"
+  ],
+  "tickers": {
+    "STW": {
+      "first": "2015-03-30",
+      "last": "2020-07-31",
+      "missing": 0,
+      "close_rows": 1354,
+      "dividends": [
+        {
+          "date": "2015-06-26",
+          "value": 0.710032
+        },
+        {
+          "date": "2015-12-29",
+          "value": 1.192597
+        },
+        {
+          "date": "2016-06-29",
+          "value": 0.841829
+        },
+        {
+          "date": "2016-09-30",
+          "value": 0.695911
+        },
+        {
+          "date": "2016-12-29",
+          "value": 0.522071
+        },
+        {
+          "date": "2017-03-30",
+          "value": 0.402899
+        },
+        {
+          "date": "2017-06-29",
+          "value": 0.570981
+        },
+        {
+          "date": "2017-09-28",
+          "value": 0.847868
+        },
+        {
+          "date": "2017-12-28",
+          "value": 0.500337
+        },
+        {
+          "date": "2018-03-28",
+          "value": 0.529824
+        },
+        {
+          "date": "2018-06-28",
+          "value": 0.384273
+        },
+        {
+          "date": "2018-09-27",
+          "value": 0.935413
+        },
+        {
+          "date": "2018-12-28",
+          "value": 0.544021
+        },
+        {
+          "date": "2019-03-28",
+          "value": 0.704357
+        },
+        {
+          "date": "2019-06-27",
+          "value": 0.768196
+        },
+        {
+          "date": "2019-09-27",
+          "value": 0.821673
+        },
+        {
+          "date": "2019-12-30",
+          "value": 0.600703
+        },
+        {
+          "date": "2020-03-20",
+          "value": 0.472397
+        },
+        {
+          "date": "2020-06-29",
+          "value": 0.10966
+        }
+      ],
+      "splits": []
+    }
+  },
+  "large_moves_threshold": 0.15,
+  "large_moves": [],
+  "yfinance_version": "1.1.0",
+  "downloaded_utc": "2026-10-26T17:56:09+00:00",
+  "csv_file": "ASX200_STW_yahoo.csv",
+  "csv_sha256": "508f7959bb64acf7532c69d8b627d27d3d8b48812838348cbdaaa5ac4cdb1c99"
+}

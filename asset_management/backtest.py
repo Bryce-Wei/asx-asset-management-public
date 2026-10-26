@@ -60,6 +60,8 @@ VARIANTS = {
 }
 # 不依赖任何模型的等权基准，每期同样按成交规则调仓并计入成本。
 BENCHMARK = "equal_weight"
+# 大盘基准（ASX 200 指数 ETF）的净值列名：提供大盘价格时，于首个成交日买入并一直持有。
+MARKET = "asx200"
 
 
 def prepare_news(news_df, settings):
@@ -300,7 +302,9 @@ def performance_metrics(nav, rebalances, settings):
     nav 为日期 × 版本的净值表，初始资金为 1；rebalances 为 run_backtest
     生成的调仓记录。波动率与夏普比率按 annualization 个交易日年化，复合
     年化收益按自然日折算年数。夏普比率扣除 backtest_risk_free_rate；
-    超额收益与信息比率以同期等权组合为基准。首笔建仓不计入平均换手。
+    超额收益与信息比率以同期等权组合为基准。净值表含大盘列（MARKET）时，
+    各版本另报告相对大盘的年化超额收益、跟踪误差和信息比率（列名以
+    _vs_asx200 结尾），计算方式相同。首笔建仓不计入平均换手。
     """
     cfg = {**DEFAULT_SETTINGS, **settings}
     periods = float(cfg.get("annualization", 252))
@@ -332,12 +336,22 @@ def performance_metrics(nav, rebalances, settings):
             tracking = active.std(ddof=1) * np.sqrt(periods)
             row["active_return_vs_equal_weight"] = active.mean() * periods
             row["information_ratio"] = row["active_return_vs_equal_weight"] / tracking if tracking > 0 else np.nan
+        if name != MARKET and MARKET in daily:
+            active = returns - daily[MARKET]
+            tracking = active.std(ddof=1) * np.sqrt(periods)
+            row["active_return_vs_asx200"] = active.mean() * periods
+            row["tracking_error_vs_asx200"] = tracking
+            row["information_ratio_vs_asx200"] = row["active_return_vs_asx200"] / tracking if tracking > 0 else np.nan
         rows[name] = row
     return pd.DataFrame.from_dict(rows, orient="index").rename_axis("variant")
 
 
-def run_backtest(inputs, settings):
+def run_backtest(inputs, settings, market_prices=None):
     """逐月执行信号计算和调仓模拟，返回报告表格、绩效指标和运行摘要。
+
+    market_prices 为可选的大盘价格（单列 DataFrame 或 Series，如 ASX 200
+    指数 ETF 的复权收盘价），须覆盖整个回测期：在首个成交日按收盘价买入
+    并持有，计入同样的建仓成本，净值列名为 MARKET。
 
     inputs 与 load_inputs 的返回值一致（不使用 clients）。每个信号日先截取
     信息集，再计算所有版本的目标权重；全部信号完成后统一模拟净值。表格：
@@ -356,6 +370,16 @@ def run_backtest(inputs, settings):
     schedule = rebalance_schedule(prices.index, cfg)
     if schedule.empty:
         raise ValueError("No rebalance date has enough history; shorten backtest_lookback_days or extend the data.")
+    start = schedule["execution_date"].iloc[0]
+    if market_prices is not None:
+        if isinstance(market_prices, pd.DataFrame):
+            if market_prices.shape[1] != 1:
+                raise ValueError("Market prices must have exactly one column.")
+            market_prices = market_prices.iloc[:, 0]
+        market = pd.Series(market_prices, dtype=float).reindex(prices.index).loc[start:]
+        # 首尾都须有报价；中间个别缺失按最近价格估值，与股票的处理一致。
+        if market.empty or pd.isna(market.iloc[0]) or pd.isna(market.iloc[-1]):
+            raise ValueError("Market prices must cover the whole backtest period.")
     names = [BENCHMARK, *VARIANTS]
     targets = {name: {} for name in names}
     period_rows, status_rows, signal_frames, weight_rows = [], [], [], []
@@ -382,13 +406,20 @@ def run_backtest(inputs, settings):
                                 "variant": name, "status": "rebalanced", "reason": ""})
             weight_rows.append({"signal_date": signal_date, "variant": name, **target.to_dict()})
 
-    start = schedule["execution_date"].iloc[0]
     navs, logs = {}, []
     for name in names:
         nav, log = simulate(prices, targets[name], cfg["backtest_cost_bps"], start)
         navs[name] = nav
         if not log.empty:
             logs.append(log.assign(variant=name))
+    if market_prices is not None:
+        # 只在首个成交日建仓、之后不调仓，即买入持有；分红随复权价格再投资。
+        nav, log = simulate(market.to_frame(MARKET), {start: pd.Series({MARKET: 1.0})},
+                            cfg["backtest_cost_bps"], start)
+        navs[MARKET] = nav
+        logs.append(log.assign(variant=MARKET))
+        status_rows.append({"signal_date": schedule["signal_date"].iloc[0], "execution_date": start,
+                            "variant": MARKET, "status": "rebalanced", "reason": "buy and hold"})
     nav = pd.DataFrame(navs).rename_axis("date")
     trades = pd.concat(logs, ignore_index=True) if logs else pd.DataFrame(
         columns=["execution_date", "turnover", "cost", "initial", "variant"])
@@ -413,6 +444,7 @@ def run_backtest(inputs, settings):
         # 调整分量实际生效的期数；若为 0，对应版本与 base 相同，比较没有意义。
         "overlay_coverage": {name: f"{value}/{count}" for name, value in active.items()},
         "base_failures": int((periods["base_status"] != "ok").sum()),
+        "market_benchmark": MARKET if market_prices is not None else None,
     }
     tables = {
         "backtest_nav": nav,

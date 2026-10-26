@@ -1,6 +1,6 @@
 # 数据放置与格式
 
-我将四份原始输入放在 `data/` 目录中，随仓库公开；将便于检查程序流程的模拟样本放在 `data/sample/`。价格文件为 Yahoo Finance 的复权收盘价（含分红），客户资料不含客户身份信息。运行生成的结果不提交。
+我将四份原始输入放在 `data/` 目录中，随仓库公开；将便于检查程序流程的模拟样本放在 `data/sample/`。价格文件为 Yahoo Finance 的复权收盘价（含分红）；新闻标题通过纽约时报 API 获取；客户资料为模拟数据，不含真实客户信息；宏观指标由课程提供。运行生成的结果不提交。
 
 ## 完整分析输入
 
@@ -8,10 +8,11 @@
 
 | 文件 | 内容与读取约定 | 用途 |
 |---|---|---|
-| `ASX200top10_yahoo.csv` | 第一列为 `date`，其余为 10 只股票的 Yahoo Finance 复权收盘价（Adj Close，已计入现金分红和拆股），2015-03-30 至 2020-04-02 共 1,271 个 ASX 交易日；由 `scripts/fetch_yahoo_prices.py` 生成，同名 `.json` 记录下载时间、参数、分红与拆股明细及文件哈希 | 价格清洗、收益计算、蒙特卡洛模拟与组合优化 |
+| `ASX200top10_yahoo.csv` | 第一列为 `date`，其余为 10 只股票的 Yahoo Finance 复权收盘价（Adj Close，已计入现金分红和拆股），2015-03-30 至 2020-07-31 共 1,354 个 ASX 交易日（截止日与新闻数据的覆盖期对齐）；由 `scripts/fetch_yahoo_prices.py` 生成，同名 `.json` 记录下载时间、参数、分红与拆股明细及文件哈希 | 价格清洗、收益计算、蒙特卡洛模拟与组合优化 |
 | `Client_Details.xlsx` | 优先读取 `Data` 工作表，包含唯一的 `client_ID`、`risk_profile`、`age_group` 和数值型持仓特征 | 客户特征标准化与 KMeans 分群 |
 | `Economic_Indicators.xlsx` | 读取第一张工作表中的 `Monthly Indicators` 区域；列为月份、行为指标，季度指标不参与当前流程 | 月度宏观指标对齐、OLS 回归与调整量计算 |
 | `news_dump.json` | 新闻记录列表，包含 `Equity`、`Source`、`Date/Time`、`Headline` | VADER 标题情绪评分与按股票汇总的权重调整 |
+| `ASX200_STW_yahoo.csv` | 第一列为 `date`，第二列 `STW` 为 ASX 200 指数 ETF 的 Yahoo Finance 复权收盘价，交易日与股票价格相同；用 `python scripts/fetch_yahoo_prices.py --tickers STW --output data/ASX200_STW_yahoo.csv` 生成，同名 `.json` 为下载记录 | 只在滚动回测中使用，作为买入持有的比较基准 |
 
 重新下载价格：`python -m pip install -r scripts/requirements.txt`，再运行 `python scripts/fetch_yahoo_prices.py`。Yahoo 会随新的分红回溯调整整段历史，因此不同时间下载的价格水平可能不同，但相邻日期的收益率不变。早期版本使用的 Bloomberg 工作簿 `ASX200top10.xlsx`（`PX_LAST`，不含分红，并把 38 个 ASX 休市日按前一日价格补齐）不再随仓库提供；持有该文件时，可用 `load_data.load_prices` 读取，对照早期结果。
 

@@ -10,14 +10,18 @@
 Yahoo 会随新的分红回溯调整整段历史，因此不同时间下载的价格水平可能不同，
 但相邻日期的收益率不受影响。分拆等公司行动的处理因数据源而异，单日涨跌
 超过阈值的日期记入 large_moves，需人工核对后再用于分析。仓库附带的数据
-已与早期 Bloomberg 价格逐日核对：2015 年 BHP 分拆 South32、2018 年 WES
-分拆 Coles 两边处理一致，唯一超过阈值的 2017-01-23 BXB 下跌 15.8% 为真实
-行情；两边收益率的差异集中在除息日，等于当期股息率。
+已在与早期 Bloomberg 价格重叠的 2015-03-30 至 2020-04-02 逐日核对：
+2015 年 BHP 分拆 South32、2018 年 WES 分拆 Coles 两边处理一致，唯一超过
+阈值的 2017-01-23 BXB 下跌 15.8% 为真实行情；两边收益率的差异集中在
+除息日，等于当期股息率。
 
 用法（项目根目录）::
 
     python -m pip install -r scripts/requirements.txt
     python scripts/fetch_yahoo_prices.py
+    python scripts/fetch_yahoo_prices.py --tickers STW --output data/ASX200_STW_yahoo.csv
+
+第二条命令下载 ASX 200 指数 ETF（STW）的复权收盘价，作为回测的比较基准。
 """
 
 from __future__ import annotations
@@ -34,10 +38,11 @@ import pandas as pd
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = PROJECT_DIR / "data" / "ASX200top10_yahoo.csv"
-# 与原彭博工作簿相同的 10 只股票和样本区间（含两端）。
+# 与原彭博工作簿相同的 10 只股票；区间（含两端）在彭博价格的 2020-04-02 之后
+# 延长到 2020-07-31，与新闻数据的覆盖期对齐。
 TICKERS = ("BHP", "CSL", "RIO", "CBA", "WOW", "WES", "TLS", "AMC", "BXB", "FPH")
 START = "2015-03-30"
-END = "2020-04-02"
+END = "2020-07-31"
 SUFFIX = ".AX"
 # 单日复权收益绝对值超过此值时记入 large_moves，提示核对分拆等公司行动。
 JUMP_THRESHOLD = 0.15
@@ -180,13 +185,16 @@ def main(argv=None):
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT, help="CSV 输出路径，JSON 写在同名位置")
     parser.add_argument("--start", default=START, help="首个交易日（含）")
     parser.add_argument("--end", default=END, help="最后交易日（含）")
+    parser.add_argument("--tickers", default=",".join(TICKERS),
+                        help="逗号分隔的 ASX 代码（不含 .AX），默认为 10 只股票；基准用 STW")
     args = parser.parse_args(argv)
     try:
         import yfinance
     except ImportError:
         parser.exit(1, "yfinance is not installed: python -m pip install -r scripts/requirements.txt\n")
-    frame = download(TICKERS, args.start, args.end)
-    prices, metadata = build_outputs(frame, TICKERS, args.start, args.end)
+    tickers = tuple(t.strip().upper() for t in args.tickers.split(",") if t.strip())
+    frame = download(tickers, args.start, args.end)
+    prices, metadata = build_outputs(frame, tickers, args.start, args.end)
     metadata = {
         **metadata,
         "yfinance_version": yfinance.__version__,
