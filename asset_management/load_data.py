@@ -19,6 +19,8 @@ from openpyxl import load_workbook
 PRICE_FILE = "ASX200top10_yahoo.csv"
 # 回测的大盘基准：ASX 200 指数 ETF（STW）的复权收盘价，同样由 scripts/fetch_yahoo_prices.py 下载。
 MARKET_FILE = "ASX200_STW_yahoo.csv"
+# 无风险利率：RBA 每次议息会议决定的现金利率目标，由 scripts/fetch_rba_cash_rate.py 下载。
+RISK_FREE_FILE = "RBA_cash_rate.csv"
 
 
 def _sheet_rows(path: Path, preferred: str | None, fallback: int) -> list[tuple]:
@@ -258,6 +260,25 @@ def load_price_table(path: str | Path, context: str = "Stock prices") -> pd.Data
     if frame.empty or (frame <= 0).any().any():
         raise ValueError(f"{context} must contain strictly positive observed prices.")
     return frame
+
+
+def load_cash_rate(path: str | Path) -> pd.Series:
+    """读取现金利率目标的历次调整，返回以生效日为索引、小数表示的年化利率。
+
+    文件须包含 effective_date 与 cash_rate_target（百分数）两列；生效日不得
+    重复，利率须为有限数值。返回值按日期升序，例如 1.5 读作 0.015。
+    """
+    path = Path(path)
+    if not path.is_file():
+        raise FileNotFoundError(f"Missing cash rate file: {path}")
+    frame = pd.read_csv(path)
+    if not {"effective_date", "cash_rate_target"}.issubset(frame.columns):
+        raise ValueError(f"{path.name} requires effective_date and cash_rate_target columns.")
+    rates = _numeric(frame.set_index("effective_date")[["cash_rate_target"]], "Cash rates")
+    rates = _date_index(rates, "Cash rates")["cash_rate_target"]
+    if rates.empty or rates.isna().any():
+        raise ValueError("Cash rates must be complete numeric values.")
+    return (rates / 100.0).rename("risk_free_rate")
 
 
 def load_sample_prices(sample_dir: str | Path) -> pd.DataFrame:

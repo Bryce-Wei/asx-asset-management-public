@@ -188,6 +188,21 @@ class ScheduleAndSimulationTests(unittest.TestCase):
         self.assertAlmostEqual(metrics.loc["base", "total_return"], 0.2)
         self.assertIn("information_ratio", metrics.columns)
 
+    def test_sharpe_subtracts_daily_risk_free_rate(self):
+        """常数利率序列与常数设置的夏普比率相同；变动的利率按日期逐日扣除。"""
+        dates = pd.bdate_range("2020-01-01", periods=6)
+        nav = pd.DataFrame({"equal_weight": [1.0, 1.01, 1.0, 1.02, 1.03, 1.02]}, index=dates)
+        rebalances = pd.DataFrame(columns=["variant", "status", "turnover", "cost", "initial"])
+        scalar = performance_metrics(nav, rebalances, {"backtest_risk_free_rate": 0.02})
+        series = performance_metrics(nav, rebalances, {}, pd.Series(0.02, index=dates))
+        self.assertAlmostEqual(scalar.loc["equal_weight", "sharpe"], series.loc["equal_weight", "sharpe"])
+        rates = pd.Series([0.0, 0.0, 0.0, 0.10, 0.10, 0.10], index=dates)
+        daily = nav["equal_weight"].pct_change().iloc[1:]
+        excess = daily - ((1 + rates.iloc[1:]) ** (1 / 252) - 1)
+        expected = excess.mean() / excess.std(ddof=1) * np.sqrt(252)
+        actual = performance_metrics(nav, rebalances, {}, rates).loc["equal_weight", "sharpe"]
+        self.assertAlmostEqual(actual, expected)
+
 
 class FailureHandlingTests(unittest.TestCase):
     """单期优化失败时沿用原持仓，而不是中断回测或使用失败的权重。"""
@@ -234,6 +249,18 @@ class MarketBenchmarkTests(unittest.TestCase):
         rebalances = result["tables"]["backtest_rebalances"].reset_index()
         self.assertEqual(int((rebalances["variant"] == backtest.MARKET).sum()), 1)
         self.assertEqual(result["summary"]["market_benchmark"], backtest.MARKET)
+
+    def test_risk_free_changes_apply_from_effective_date(self):
+        """每个净值日期使用当日已生效的利率；利率记录晚于首个成交日时报错。"""
+        inputs = synthetic_inputs()
+        changes = pd.Series([0.015, 0.0025], index=pd.to_datetime(["2015-01-01", "2020-03-20"]))
+        with fixed_vader():
+            result = run_backtest(inputs, TEST_SETTINGS, risk_free=changes)
+        nav = result["tables"]["backtest_nav"]
+        expected = changes.reindex(changes.index.union(nav.index)).ffill().reindex(nav.index).mean()
+        self.assertAlmostEqual(result["summary"]["risk_free_rate_mean"], expected)
+        with self.assertRaises(ValueError):
+            run_backtest(inputs, TEST_SETTINGS, risk_free=pd.Series([0.01], index=[nav.index[-1]]))
 
     def test_market_must_cover_backtest_period(self):
         """大盘数据提前结束时直接报错，而不是把最后价格一直延用下去。"""

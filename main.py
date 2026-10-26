@@ -10,7 +10,9 @@ import pandas as pd
 
 from config import RAW_DIR, SAMPLE_DIR, OUTPUT_DIR, SETTINGS
 from asset_management.features import log_returns
-from asset_management.load_data import MARKET_FILE, load_inputs, load_price_table, load_sample_prices
+from asset_management.load_data import (
+    MARKET_FILE, RISK_FREE_FILE, load_cash_rate, load_inputs, load_price_table, load_sample_prices,
+)
 from asset_management.reporting import save_reports
 
 
@@ -90,7 +92,8 @@ def run_backtest(data_dir: Path, output_dir: Path, risk_level: int | None = None
     宏观调整，按设定的成交滞后与交易成本模拟每日净值。同时输出等权、
     仅基础组合、仅加情绪、仅加宏观和完整策略五个版本，用于判断各调整
     分量是否带来增益。数据目录中有 MARKET_FILE（ASX 200 指数 ETF）时，
-    同时以买入持有的大盘作为比较基准。回测参数见 backtest.DEFAULT_SETTINGS，
+    同时以买入持有的大盘作为比较基准；有 RISK_FREE_FILE（RBA 现金利率）时，夏普
+    比率逐日扣除当日的现金利率。回测参数见 backtest.DEFAULT_SETTINGS，
     可在 config.SETTINGS 中覆盖。返回回测区间、各版本绩效和生成文件路径。
     """
     from asset_management import backtest
@@ -100,7 +103,9 @@ def run_backtest(data_dir: Path, output_dir: Path, risk_level: int | None = None
         settings["selected_risk_level"] = risk_level
     market_path = Path(data_dir) / MARKET_FILE
     market = load_price_table(market_path, "ASX 200 prices") if market_path.is_file() else None
-    result = backtest.run_backtest(load_inputs(data_dir), settings, market)
+    rate_path = Path(data_dir) / RISK_FREE_FILE
+    risk_free = load_cash_rate(rate_path) if rate_path.is_file() else None
+    result = backtest.run_backtest(load_inputs(data_dir), settings, market, risk_free)
     files = save_reports(result["tables"], output_dir, mode="backtest")
     # NaN 转为 JSON null，避免输出非标准 JSON。
     metrics = result["metrics"].round(6).astype(object)
