@@ -1,6 +1,6 @@
 # ASX Asset Management 项目报告
 
-[README](../README.zh-CN.md)（[English](../README.md)）是项目的一页概要；这份报告是完整版本，按数据工厂的四个工作站记录数据来源、计算方法和早期报告的结果，并说明滚动回测的方法、[结果明细](#结果明细)与局限。当前代码的实现细节见[方法与限制](methodology.md)。
+[README](../README.md)（[English](../README.en.md)）是项目的一页概要；这份报告是完整版本，按数据工厂的四个工作站记录数据来源、计算方法和早期报告的结果，并说明滚动回测的方法、[结果明细](#结果明细)与局限。当前代码的实现细节见[方法与限制](methodology.md)。
 
 ## 数据来源与说明
 
@@ -506,8 +506,8 @@ python experiments/arima_forecast.py --help
 
 ```text
 asx-asset-management-public/
-├── README.md                       # 英文概要
-├── README.zh-CN.md                 # 中文概要
+├── README.md                       # 中文概要
+├── README.en.md                    # 英文概要
 ├── LICENSE                         # Apache License 2.0，适用范围见“许可”
 ├── requirements.txt
 ├── .gitignore
@@ -579,4 +579,4 @@ Harrison, 2010. Introduction To Monte Carlo Simulation.
 
 ## 许可
 
-我编写的代码采用 [Apache License 2.0](../LICENSE)；`data/` 中的数据不在授权范围内，各数据的来源与权利说明见 [README](../README.zh-CN.md#许可)。
+我编写的代码采用 [Apache License 2.0](../LICENSE)；`data/` 中的数据不在授权范围内，各数据的来源与权利说明见 [README](../README.md#许可)。

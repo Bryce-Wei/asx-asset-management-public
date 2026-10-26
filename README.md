@@ -1,58 +1,58 @@
 # ASX Asset Management
 
-English | [中文](README.zh-CN.md)
+中文 | [English](README.en.md)
 
-An asset allocation pipeline for ten large ASX stocks: mean-variance optimisation sets the base weights, news sentiment and macro indicators adjust them, and a monthly walk-forward backtest tests the rules using only the data available at each rebalance.
+我用 10 只 ASX 大盘股搭建了一套资产配置流程：先用均值—方差优化得到基础组合，再根据新闻情绪和宏观指标调整权重，最后用按月滚动回测检验，每次调仓只使用当时已经可以获得的数据。
 
-## Performance
+## 投资收益表现
 
-![Net asset value of the full strategy, an equal-weight portfolio of the same stocks and the ASX 200](docs/images/backtest-nav.png)
+![完整策略、同一股票池的等权组合与 ASX 200 的净值走势](docs/images/backtest-nav.png)
 
-| 2017-04-03 to 2020-07-31 | Full strategy | Equal weight (same 10 stocks) | ASX 200 |
+| 2017-04-03 至 2020-07-31 | 完整策略 | 等权组合（同 10 只股票） | ASX 200 |
 |---|---|---|---|
-| Total return | 87.5% | 67.9% | 14.9% |
-| Annualised return | 20.8% | 16.9% | 4.3% |
-| Annualised volatility | 16.1% | 15.6% | 17.0% |
-| Sharpe ratio (net of RBA cash rate) | 1.18 | 1.00 | 0.26 |
-| Maximum drawdown | −17.9% | −20.3% | −34.3% |
-| Excess return vs equal weight, p.a. (t-stat) | +3.4% (0.9) | — | — |
-| Excess return vs ASX 200, p.a. (t-stat) | +14.5% (2.1) | +11.1% (2.4) | — |
+| 总收益 | 87.5% | 67.9% | 14.9% |
+| 年化收益 | 20.8% | 16.9% | 4.3% |
+| 年化波动 | 16.1% | 15.6% | 17.0% |
+| 夏普比率（扣除 RBA 现金利率） | 1.18 | 1.00 | 0.26 |
+| 最大回撤 | −17.9% | −20.3% | −34.3% |
+| 相对等权组合的年化超额收益（t 值） | +3.4%（0.9） | — | — |
+| 相对 ASX 200 的年化超额收益（t 值） | +14.5%（2.1） | +11.1%（2.4） | — |
 
-- **The allocation model's own contribution is not statistically significant.** Against an equal-weight portfolio of the same ten stocks, the strategy earned 3.4 percentage points a year more, with a t-statistic of about 0.9. It beat equal weight in only 21 of 40 months and trailed it by 8.1 points in 2019.
-- **Beating the ASX 200 came mostly from the stock universe.** The ten stocks are a fixed list set at the end of the sample, which builds in hindsight selection bias: holding them in equal weight already beat the index by 11.1 points a year, so the +14.5% is not evidence of skill.
-- **Smaller drawdown in the 2020 crash.** From 20 February to 23 March 2020 the strategy, equal weight and the ASX 200 fell 13.9%, 19.9% and 34.3%; in the rebound to 31 July they rose 19.3%, 20.8% and 28.3%. A single episode does not show a reliable defensive edge.
-- **The sentiment and macro overlays cannot be evaluated yet.** News and macro data cover only the last months of the sample, so the overlays were active in only 6 and 8 of the 40 periods.
+- **配置模型本身的贡献在统计上不显著。** 与持有同样 10 只股票的等权组合相比，完整策略每年多 3.4 个百分点，t 值约 0.9；40 个月中只有 21 个月跑赢，2019 年还落后 8.1 个百分点。
+- **跑赢 ASX 200 主要靠股票池。** 这 10 只股票是样本期末确定的固定名单，带有事后选股偏差：等权持有就比 ASX 200 每年多 11.1 个百分点，因此 +14.5% 不能视为模型的能力。
+- **2020 年初回撤较小。** 2020 年 2 月 20 日至 3 月 23 日，完整策略、等权组合和 ASX 200 分别下跌 13.9%、19.9% 和 34.3%；到 7 月底的反弹中分别上涨 19.3%、20.8% 和 28.3%。这只是一次事件，不足以说明策略有稳定的防守能力。
+- **情绪与宏观调整还无法评估。** 新闻和宏观数据只覆盖回测期的最后几个月，两类调整分别只在 40 期中的 6 期和 8 期生效。
 
-## Method
+## 方法
 
-![Data factory and investment process](docs/images/data-factory-flow-en.png)
+![数据工厂与投资流程](docs/images/data-factory-flow.png)
 
-- **Data:** dividend-adjusted daily closes from Yahoo Finance for BHP, CSL, RIO, CBA, WOW, WES, TLS, AMC, BXB and FPH (2015-03-30 to 2020-07-31); 405 headlines from the New York Times API; monthly Australian macro indicators provided by the course; 100 simulated clients. The STW ETF stands in for the ASX 200, and the Reserve Bank of Australia (RBA) cash rate is the risk-free rate.
-- **Portfolio:** each month, maximise expected return − 4.34 × volatility (risk level 2) over the last 504 trading days, long-only and fully invested; then add a news-sentiment adjustment (VADER scores on headlines) and a macro adjustment (a per-stock OLS regression on six indicators) and renormalise.
-- **Backtest:** compute weights on the last trading day of each month, trade at the next day's close with a 10 bp one-way cost, and hold to the next month-end; 40 periods. Equal weight is rebalanced monthly under the same rules; the ASX 200 is bought on the first trade date and held.
-- **No look-ahead:** prices up to the signal-day close, headlines published before 16:00 Sydney time on the signal day, and macro data with a two-month release lag. A unit test alters all data after the signal date and checks that the weights do not change.
+- **数据：** BHP、CSL、RIO、CBA、WOW、WES、TLS、AMC、BXB、FPH 在 2015-03-30 至 2020-07-31 的 Yahoo Finance 复权收盘价（含分红）；通过纽约时报 API 获取的 405 条新闻标题；课程提供的澳大利亚月度宏观指标；100 位模拟客户。ASX 200 用指数 ETF（STW）代表，无风险利率用澳洲储备银行（RBA）的现金利率。
+- **组合：** 用最近 504 个交易日的收益做均值—方差优化，最大化“预期收益 − 4.34 × 波动率”（风险等级 2），不做空、资金全部投入；再加上新闻情绪调整（VADER 标题评分）和宏观调整（每只股票对 6 个指标做 OLS 回归），归一化后得到最终权重。
+- **回测：** 每月最后一个交易日计算权重，下一个交易日按收盘价调仓，单边成本 10 个基点，持有到下个月末，共 40 期。等权组合按同样的规则每月调仓；ASX 200 在首个成交日买入后一直持有。
+- **不使用未来数据：** 价格截至信号日收盘，新闻截至信号日悉尼时间 16:00，宏观指标按 2 个月的发布滞后使用。单元测试篡改信号日之后的全部数据，确认当期权重不变。
 
-## Limitations and next steps
+## 局限与改进方向
 
-- **Universe:** use point-in-time ASX 200 constituents to remove the selection bias.
-- **Sample length:** 40 months that include one crash and rebound. At an information ratio of about 0.5, it would take about 16 years of data for the excess return over equal weight to reach a t-statistic of 2.
-- **Model design:** mean-variance weights are sensitive to estimation error; the macro regression fits six coefficients on 7–14 monthly observations and is prone to overfitting; adding the overlays and renormalising produced negative weights in 4 periods, with no borrowing cost charged.
-- **Attribution:** excess returns are not yet decomposed into market, size and sector exposures.
+- **股票池：** 改用各时点的 ASX 200 成分股，消除事后选股偏差。
+- **样本长度：** 40 个月中包含 2020 年的一次暴跌和反弹。按约 0.5 的信息比率，需要约 16 年的数据，相对等权组合的 t 值才能达到 2。
+- **模型设计：** 均值—方差权重对收益估计误差敏感；宏观回归每期只有 7–14 个月度样本，却要估计 6 个系数，容易过拟合；两类调整相加后再归一化，有 4 期出现负权重，回测没有计入借券成本。
+- **收益归因：** 还没有把超额收益分解到市场、规模和行业等因子上。
 
-## Run
+## 运行方法
 
-With Python 3.12:
+使用 Python 3.12：
 
 ```bash
 python -m pip install -r requirements.txt
 python -m nltk.downloader vader_lexicon
-python main.py --mode backtest --data-dir data   # backtest -> outputs/backtest/
-python main.py --data-dir data                   # full pipeline -> outputs/
-python -m unittest discover -s tests             # 32 tests
+python main.py --mode backtest --data-dir data   # 滚动回测，结果写入 outputs/backtest/
+python main.py --data-dir data                   # 完整流程（四个工作站），结果写入 outputs/
+python -m unittest discover -s tests             # 32 个测试
 ```
 
-The [full project report](docs/report.md) (in Chinese) documents the data, the four workstations and the early report's results, and details the backtest method, results and limitations; [methodology](docs/methodology.md) (in Chinese) covers implementation details.
+[完整项目报告](docs/report.md)按四个工作站记录数据、计算方法和早期报告的结果，并详细说明回测方法、结果明细与局限；[方法与限制](docs/methodology.md)说明当前代码的实现细节。
 
-## Licence
+## 许可
 
-My code is licensed under the [Apache License 2.0](LICENSE), which does not cover the data in `data/`: Yahoo Finance prices, New York Times headlines, simulated client records, course-provided macro indicators and RBA cash rates remain with their owners, so check the source terms before using or redistributing them. The synthetic samples in `data/sample/` were made by me. Each file is described in [data/README.md](data/README.md) (in Chinese).
+我编写的代码采用 [Apache License 2.0](LICENSE)。该许可不适用于 `data/` 中的数据：Yahoo Finance 的复权价格、通过纽约时报 API 获取的新闻标题、模拟的客户资料、课程提供的宏观指标和澳洲储备银行的现金利率，权利归原权利人所有，使用或再分发前需确认原始来源的条款。`data/sample/` 中的模拟样本由我构造。各文件的说明见[数据说明](data/README.md)。
