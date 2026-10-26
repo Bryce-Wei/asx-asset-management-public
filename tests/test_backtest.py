@@ -215,5 +215,34 @@ class FailureHandlingTests(unittest.TestCase):
         self.assertTrue(np.isfinite(result["tables"]["backtest_nav"].to_numpy()).all())
 
 
+class MarketBenchmarkTests(unittest.TestCase):
+    """大盘基准在首个成交日买入并持有，各版本另报告相对大盘的指标。"""
+
+    def test_market_is_bought_once_and_held(self):
+        """大盘净值 = 扣除 10 个基点建仓成本后随价格变化，之后不再调仓。"""
+        inputs = synthetic_inputs()
+        dates = inputs["prices"].index
+        market = pd.DataFrame({"STW": np.linspace(100.0, 130.0, len(dates))}, index=dates)
+        with fixed_vader():
+            result = run_backtest(inputs, TEST_SETTINGS, market)
+        nav = result["tables"]["backtest_nav"]
+        start = nav.index[0]
+        expected = 0.999 * market["STW"].loc[start:] / market["STW"].loc[start]
+        np.testing.assert_allclose(nav[backtest.MARKET].to_numpy(), expected.to_numpy())
+        for column in ("active_return_vs_asx200", "tracking_error_vs_asx200", "information_ratio_vs_asx200"):
+            self.assertTrue(np.isfinite(result["metrics"].loc["full", column]))
+        rebalances = result["tables"]["backtest_rebalances"].reset_index()
+        self.assertEqual(int((rebalances["variant"] == backtest.MARKET).sum()), 1)
+        self.assertEqual(result["summary"]["market_benchmark"], backtest.MARKET)
+
+    def test_market_must_cover_backtest_period(self):
+        """大盘数据提前结束时直接报错，而不是把最后价格一直延用下去。"""
+        inputs = synthetic_inputs()
+        dates = inputs["prices"].index
+        market = pd.DataFrame({"STW": 100.0}, index=dates[: len(dates) // 2])
+        with self.assertRaises(ValueError):
+            run_backtest(inputs, TEST_SETTINGS, market)
+
+
 if __name__ == "__main__":
     unittest.main()

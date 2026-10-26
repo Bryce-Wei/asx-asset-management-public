@@ -19,6 +19,9 @@ Yahoo 会随新的分红回溯调整整段历史，因此不同时间下载的�
 
     python -m pip install -r scripts/requirements.txt
     python scripts/fetch_yahoo_prices.py
+    python scripts/fetch_yahoo_prices.py --tickers STW --output data/ASX200_STW_yahoo.csv
+
+第二条命令下载 ASX 200 指数 ETF（STW）的复权收盘价，作为回测的比较基准。
 """
 
 from __future__ import annotations
@@ -182,13 +185,16 @@ def main(argv=None):
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT, help="CSV 输出路径，JSON 写在同名位置")
     parser.add_argument("--start", default=START, help="首个交易日（含）")
     parser.add_argument("--end", default=END, help="最后交易日（含）")
+    parser.add_argument("--tickers", default=",".join(TICKERS),
+                        help="逗号分隔的 ASX 代码（不含 .AX），默认为 10 只股票；基准用 STW")
     args = parser.parse_args(argv)
     try:
         import yfinance
     except ImportError:
         parser.exit(1, "yfinance is not installed: python -m pip install -r scripts/requirements.txt\n")
-    frame = download(TICKERS, args.start, args.end)
-    prices, metadata = build_outputs(frame, TICKERS, args.start, args.end)
+    tickers = tuple(t.strip().upper() for t in args.tickers.split(",") if t.strip())
+    frame = download(tickers, args.start, args.end)
+    prices, metadata = build_outputs(frame, tickers, args.start, args.end)
     metadata = {
         **metadata,
         "yfinance_version": yfinance.__version__,

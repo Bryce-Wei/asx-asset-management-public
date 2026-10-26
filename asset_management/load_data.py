@@ -17,6 +17,8 @@ from openpyxl import load_workbook
 
 # 完整模式的价格输入：Yahoo Finance 复权收盘价（含分红），见 scripts/fetch_yahoo_prices.py。
 PRICE_FILE = "ASX200top10_yahoo.csv"
+# 回测的大盘基准：ASX 200 指数 ETF（STW）的复权收盘价，同样由 scripts/fetch_yahoo_prices.py 下载。
+MARKET_FILE = "ASX200_STW_yahoo.csv"
 
 
 def _sheet_rows(path: Path, preferred: str | None, fallback: int) -> list[tuple]:
