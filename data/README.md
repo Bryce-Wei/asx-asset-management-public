@@ -8,7 +8,7 @@
 
 | 文件 | 内容与读取约定 | 用途 |
 |---|---|---|
-| `ASX200top10_yahoo.csv` | 第一列为 `date`，其余为 10 只股票的 Yahoo Finance 复权收盘价（Adj Close，已计入现金分红和拆股），2015-03-30 至 2020-04-02 共 1,271 个 ASX 交易日；由 `scripts/fetch_yahoo_prices.py` 生成，同名 `.json` 记录下载时间、参数、分红与拆股明细及文件哈希 | 价格清洗、收益计算、蒙特卡洛模拟与组合优化 |
+| `ASX200top10_yahoo.csv` | 第一列为 `date`，其余为 10 只股票的 Yahoo Finance 复权收盘价（Adj Close，已计入现金分红和拆股），2015-03-30 至 2020-07-31 共 1,354 个 ASX 交易日（截止日与新闻数据的覆盖期对齐）；由 `scripts/fetch_yahoo_prices.py` 生成，同名 `.json` 记录下载时间、参数、分红与拆股明细及文件哈希 | 价格清洗、收益计算、蒙特卡洛模拟与组合优化 |
 | `Client_Details.xlsx` | 优先读取 `Data` 工作表，包含唯一的 `client_ID`、`risk_profile`、`age_group` 和数值型持仓特征 | 客户特征标准化与 KMeans 分群 |
 | `Economic_Indicators.xlsx` | 读取第一张工作表中的 `Monthly Indicators` 区域；列为月份、行为指标，季度指标不参与当前流程 | 月度宏观指标对齐、OLS 回归与调整量计算 |
 | `news_dump.json` | 新闻记录列表，包含 `Equity`、`Source`、`Date/Time`、`Headline` | VADER 标题情绪评分与按股票汇总的权重调整 |
