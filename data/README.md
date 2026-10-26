@@ -1,17 +1,19 @@
 # 数据放置与格式
 
-我将四份原始输入放在 `data/` 目录中，随仓库公开；将便于检查程序流程的模拟样本放在 `data/sample/`。价格文件只包含 Bloomberg 导出的股票价格，客户资料不含客户身份信息。运行生成的结果不提交。
+我将四份原始输入放在 `data/` 目录中，随仓库公开；将便于检查程序流程的模拟样本放在 `data/sample/`。价格文件为 Yahoo Finance 的复权收盘价（含分红），客户资料不含客户身份信息。运行生成的结果不提交。
 
 ## 完整分析输入
 
-四份原始文件位于 `data/`，保留原文件名及工作簿布局。程序默认从 `data/raw/` 读取，因此运行完整分析或回测时用 `--data-dir data` 指定该目录；把文件复制到 `data/raw/` 则不需要这个参数。各文件的内容与读取约定如下：
+四份原始文件位于 `data/`，除价格外保留原文件名及工作簿布局。程序默认从 `data/raw/` 读取，因此运行完整分析或回测时用 `--data-dir data` 指定该目录；把文件复制到 `data/raw/` 则不需要这个参数。各文件的内容与读取约定如下：
 
 | 文件 | 内容与读取约定 | 用途 |
 |---|---|---|
-| `ASX200top10.xlsx` | 优先读取 `Bloomberg raw` 工作表，以两行表头识别各股票的 `PX_LAST` 列，第一列为日期 | 价格清洗、收益计算、蒙特卡洛模拟与组合优化 |
+| `ASX200top10_yahoo.csv` | 第一列为 `date`，其余为 10 只股票的 Yahoo Finance 复权收盘价（Adj Close，已计入现金分红和拆股），2015-03-30 至 2020-04-02 共 1,271 个 ASX 交易日；由 `scripts/fetch_yahoo_prices.py` 生成，同名 `.json` 记录下载时间、参数、分红与拆股明细及文件哈希 | 价格清洗、收益计算、蒙特卡洛模拟与组合优化 |
 | `Client_Details.xlsx` | 优先读取 `Data` 工作表，包含唯一的 `client_ID`、`risk_profile`、`age_group` 和数值型持仓特征 | 客户特征标准化与 KMeans 分群 |
 | `Economic_Indicators.xlsx` | 读取第一张工作表中的 `Monthly Indicators` 区域；列为月份、行为指标，季度指标不参与当前流程 | 月度宏观指标对齐、OLS 回归与调整量计算 |
 | `news_dump.json` | 新闻记录列表，包含 `Equity`、`Source`、`Date/Time`、`Headline` | VADER 标题情绪评分与按股票汇总的权重调整 |
+
+重新下载价格：`python -m pip install -r scripts/requirements.txt`，再运行 `python scripts/fetch_yahoo_prices.py`。Yahoo 会随新的分红回溯调整整段历史，因此不同时间下载的价格水平可能不同，但相邻日期的收益率不变。早期版本使用的 Bloomberg 工作簿 `ASX200top10.xlsx`（`PX_LAST`，不含分红，并把 38 个 ASX 休市日按前一日价格补齐）不再随仓库提供；持有该文件时，可用 `load_data.load_prices` 读取，对照早期结果。
 
 股票代码在载入时统一为资产标签，并用于对齐客户持仓、新闻和最终权重。股票日期与客户编号必须唯一；价格必须为正数，客户特征必须为完整的有限数值。加载器不会改写输入文件。
 

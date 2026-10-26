@@ -1,0 +1,2 @@
+# 仅 scripts/fetch_yahoo_prices.py 下载价格时需要；分析与回测读取已保存的 CSV，不依赖它。
+yfinance==1.1.0
