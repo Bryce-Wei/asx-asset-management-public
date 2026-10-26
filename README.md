@@ -46,8 +46,8 @@ With Python 3.12:
 ```bash
 python -m pip install -r requirements.txt
 python -m nltk.downloader vader_lexicon
-python main.py --mode backtest --data-dir data   # walk-forward backtest, written to outputs/backtest/
-python main.py --data-dir data                   # full pipeline (four workstations), written to outputs/
+python main.py --mode backtest --data-dir data   # backtest -> outputs/backtest/
+python main.py --data-dir data                   # full pipeline -> outputs/
 python -m unittest discover -s tests             # 32 tests
 ```
 
@@ -55,6 +55,4 @@ The [full project report](docs/report.md) (in Chinese) documents the data, the f
 
 ## Licence
 
-My code is licensed under the [Apache License 2.0](LICENSE). The licence covers the code only, not the data in `data/`: Yahoo Finance adjusted prices (`ASX200top10_yahoo.csv` and `ASX200_STW_yahoo.csv`, with their download records), New York Times headlines obtained through its API (`news_dump.json`), simulated client records (`Client_Details.xlsx`), course-provided macro indicators (`Economic_Indicators.xlsx`) and RBA cash rates (`RBA_cash_rate.csv`, with its download record).
-
-Rights in these data remain with their owners, and the Apache License 2.0 grants no rights in them; check the source terms before using or redistributing them. The synthetic samples in `data/sample/` were made by me and contain no real stocks, clients or news.
+My code is licensed under the [Apache License 2.0](LICENSE), which does not cover the data in `data/`: Yahoo Finance prices, New York Times headlines, simulated client records, course-provided macro indicators and RBA cash rates remain with their owners, so check the source terms before using or redistributing them. The synthetic samples in `data/sample/` were made by me. Each file is described in [data/README.md](data/README.md) (in Chinese).

@@ -55,6 +55,4 @@ python -m unittest discover -s tests             # 32 个测试
 
 ## 许可
 
-我编写的代码采用 [Apache License 2.0](LICENSE)。该许可只适用于代码，不适用于 `data/` 中的数据：Yahoo Finance 的复权价格 `ASX200top10_yahoo.csv` 和 `ASX200_STW_yahoo.csv`（及其下载记录）、通过纽约时报 API 获取的新闻记录 `news_dump.json`、模拟的客户资料 `Client_Details.xlsx`、课程提供的宏观指标 `Economic_Indicators.xlsx`，以及澳洲储备银行的现金利率 `RBA_cash_rate.csv`（及其下载记录）。
-
-这些数据的权利归原权利人所有，Apache License 2.0 不授予这些数据的任何权利；使用或再分发前需确认原始来源的条款。`data/sample/` 中的模拟样本由我构造，不包含真实股票、客户或新闻记录。
+我编写的代码采用 [Apache License 2.0](LICENSE)。该许可不适用于 `data/` 中的数据：Yahoo Finance 的复权价格、通过纽约时报 API 获取的新闻标题、模拟的客户资料、课程提供的宏观指标和澳洲储备银行的现金利率，权利归原权利人所有，使用或再分发前需确认原始来源的条款。`data/sample/` 中的模拟样本由我构造。各文件的说明见[数据说明](data/README.md)。
