@@ -1,4 +1,4 @@
-"""按月滚动回测：每个调仓日只使用当时已经可以获得的数据重新计算权重。
+"""按月滚动回测：每个调仓日按信号时点截取输入数据，重新计算权重。
 
 信息集规则均以信号日 s（每月最后一个交易日）为准：
 
@@ -12,9 +12,16 @@
 信号在 s 收盘后形成，于 ``backtest_execution_lag_days`` 个交易日后的收盘成交，
 此后才获得新权重的收益；成交日当天的涨跌仍归属原持仓。
 
-蒙特卡洛和客户分群不影响权重，回测中不运行。股票池固定为输入中的股票，
-价格为 Yahoo Finance 复权收盘价（计入现金分红，不含澳洲股息的免税额），
-指标取文件中的最终修订值；这些偏差无法由截取日期消除，解读结果时需一并考虑。
+策略只做多：基础组合优化禁止做空；情绪和宏观调整叠加到基础权重并归一化后，
+若出现负权重，把负权重设为 0 并按比例缩放到合计为 1，其余期次不变。运行摘要
+的 overlay_adjusted_periods 记录各版本实际施加调整的期数，clipped_periods 记录
+其中因出现负权重而截断的期数。
+
+蒙特卡洛和客户分群不影响权重，回测中不运行。截取日期只能消除回测过程中的
+前视偏差，无法修正数据本身的偏差：股票池固定为输入中的股票（本仓库数据是样本
+期末确定的 10 只股票，不是各时点的指数成分股，带有事后选股偏差）；价格为
+Yahoo Finance 复权收盘价（计入现金分红，不含澳洲股息的免税额）；指标取文件中
+的最终修订值，统一的发布滞后只是近似。解读结果时需一并考虑这些偏差。
 """
 
 from __future__ import annotations
@@ -138,7 +145,7 @@ def rebalance_schedule(price_index, settings):
 
 
 def point_in_time_inputs(data, signal_date, settings):
-    """截取信号日当时已可获得的价格、新闻和宏观指标。
+    """按信号时点截取价格、新闻和宏观指标；宏观指标的可用时点按统一发布滞后近似。
 
     data 含 prices、news（须经 prepare_news）和 indicators。返回的表格
     均为副本，另附 news_cutoff 与 macro_cutoff 两个截止时点，便于逐期审计
@@ -191,7 +198,8 @@ def compute_signals(pit, settings):
             columns=["base_weight", "sentiment_adjustment", "macro_adjustment"],
         )
         failures = {name: "base optimization failed" for name in VARIANTS}
-        return {"targets": targets, "failures": failures, "components": components, "status": status}
+        return {"targets": targets, "failures": failures, "components": components,
+                "status": status, "adjusted": {}, "clipped": {}, "raw_short_weight": {}}
 
     sentiment_adjustment = zero.copy()
     news = pit["news"]
@@ -226,7 +234,7 @@ def compute_signals(pit, settings):
             status["macro"] = f"zero: {exc}"
 
     parts = {"sentiment": sentiment_adjustment, "macro": macro_adjustment}
-    failures = {}
+    failures, adjusted, clipped, raw_short = {}, {}, {}, {}
     for name, used in VARIANTS.items():
         try:
             frame = allocation.combine_weights(
@@ -236,6 +244,11 @@ def compute_signals(pit, settings):
                 cfg,
             )
             targets[name] = frame["final_weight"].rename("weight")
+            # 本期是否实际施加了非零调整，以及调整后是否出现负权重并被截断。
+            adjusted[name] = bool(any((parts[part] != 0).any() for part in used))
+            clipped[name] = bool(frame.attrs["clipped"])
+            raw = frame["raw_weight"]
+            raw_short[name] = float(raw[raw < 0].sum())
         except ValueError as exc:
             failures[name] = str(exc)
     components = pd.DataFrame({
@@ -243,7 +256,8 @@ def compute_signals(pit, settings):
         "sentiment_adjustment": sentiment_adjustment,
         "macro_adjustment": macro_adjustment,
     }).rename_axis("ticker")
-    return {"targets": targets, "failures": failures, "components": components, "status": status}
+    return {"targets": targets, "failures": failures, "components": components, "status": status,
+            "adjusted": adjusted, "clipped": clipped, "raw_short_weight": raw_short}
 
 
 def simulate(prices, targets, cost_bps, start_date):
@@ -372,7 +386,7 @@ def run_backtest(inputs, settings, market_prices=None, risk_free=None):
     backtest_nav（每日净值）、backtest_metrics（绩效）、backtest_weights
     （每期目标权重）、backtest_signals（每期三个分量）、backtest_periods
     （每期数据截止时点与分量状态）、backtest_rebalances（每期每版本的
-    调仓或沿用记录）。
+    调仓或沿用记录，以及本期是否施加调整、是否截断负权重）。
     """
     cfg = {**DEFAULT_SETTINGS, **settings}
     prices = inputs["prices"]
@@ -421,7 +435,10 @@ def run_backtest(inputs, settings, market_prices=None, risk_free=None):
                 continue
             targets[name][execution_date] = target
             status_rows.append({"signal_date": signal_date, "execution_date": execution_date,
-                                "variant": name, "status": "rebalanced", "reason": ""})
+                                "variant": name, "status": "rebalanced", "reason": "",
+                                "adjusted": result["adjusted"].get(name, False),
+                                "clipped": result["clipped"].get(name, False),
+                                "raw_short_weight": result["raw_short_weight"].get(name, 0.0)})
             weight_rows.append({"signal_date": signal_date, "variant": name, **target.to_dict()})
 
     navs, logs = {}, []
@@ -437,12 +454,16 @@ def run_backtest(inputs, settings, market_prices=None, risk_free=None):
         navs[MARKET] = nav
         logs.append(log.assign(variant=MARKET))
         status_rows.append({"signal_date": schedule["signal_date"].iloc[0], "execution_date": start,
-                            "variant": MARKET, "status": "rebalanced", "reason": "buy and hold"})
+                            "variant": MARKET, "status": "rebalanced", "reason": "buy and hold",
+                            "adjusted": False, "clipped": False, "raw_short_weight": 0.0})
     nav = pd.DataFrame(navs).rename_axis("date")
     trades = pd.concat(logs, ignore_index=True) if logs else pd.DataFrame(
         columns=["execution_date", "turnover", "cost", "initial", "variant"])
     rebalances = pd.DataFrame(status_rows).merge(trades, on=["execution_date", "variant"], how="left")
     rebalances["initial"] = rebalances["initial"].astype("boolean").fillna(False).astype(bool)
+    # 沿用原持仓的期次没有新目标，调整与截断标记留空。
+    for column in ("adjusted", "clipped"):
+        rebalances[column] = rebalances[column].astype("boolean")
     rates = None
     if risk_free is not None:
         # 每个净值日期取当日已生效的最近一次利率。
@@ -454,6 +475,9 @@ def run_backtest(inputs, settings, market_prices=None, risk_free=None):
         name: int((~periods[f"{name}_status"].str.startswith("zero")).sum())
         for name in ("sentiment", "macro")
     }
+    flags = rebalances.loc[rebalances["variant"].isin(list(VARIANTS))].groupby("variant")
+    adjusted = flags["adjusted"].sum().astype(int).reindex(list(VARIANTS), fill_value=0)
+    clipped = flags["clipped"].sum().astype(int).reindex(list(VARIANTS), fill_value=0)
     summary = {
         "first_signal": str(schedule["signal_date"].iloc[0].date()),
         "last_signal": str(schedule["signal_date"].iloc[-1].date()),
@@ -465,6 +489,9 @@ def run_backtest(inputs, settings, market_prices=None, risk_free=None):
         "macro_release_lag_months": int(cfg["backtest_macro_release_lag_months"]),
         # 调整分量实际生效的期数；若为 0，对应版本与 base 相同，比较没有意义。
         "overlay_coverage": {name: f"{value}/{count}" for name, value in active.items()},
+        # 各版本实际施加非零调整的期数，以及其中出现负权重、被截断后归一化的期数。
+        "overlay_adjusted_periods": {name: f"{value}/{count}" for name, value in adjusted.items()},
+        "clipped_periods": {name: f"{value}/{count}" for name, value in clipped.items()},
         "base_failures": int((periods["base_status"] != "ok").sum()),
         "market_benchmark": MARKET if market_prices is not None else None,
         "risk_free_rate_mean": float(rates.mean()) if rates is not None else float(cfg["backtest_risk_free_rate"]),

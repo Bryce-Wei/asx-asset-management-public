@@ -1,7 +1,7 @@
 """按股票标签合并基础配置、情绪调整和宏观调整，并报告权重约束状态。
 
-合并采用加法叠加后统一归一化；此处不重新优化、不截断负数，也不实施
-单一持仓上限。因此基础组合禁止做空，不代表调整后的最终组合仍禁止做空。
+合并采用加法叠加后统一归一化；若归一化后出现负权重，把负权重设为 0 并
+按比例缩放到合计为 1（只做多）。此处不重新优化，也不实施单一持仓上限。
 """
 
 import numpy as np
@@ -24,11 +24,12 @@ def combine_weights(base, sentiment_adjustments, macro_adjustments, settings):
     返回：
         以基础权重股票顺序为索引的 DataFrame，含 base_weight、
         sentiment_adjustment、macro_adjustment 和 final_weight。
-        attrs 保存取整精度，供 validate_weights 计算合计容差。
+        另含 raw_weight（截断前的归一化权重）；attrs 保存取整精度
+        （供 validate_weights 计算合计容差）和 clipped（本次是否截断了负权重）。
 
     公式为 a_i = 基础权重_i + 情绪调整_i + 宏观调整_i，随后
-    w_i = a_i / Σa_i，最后按指定精度取整。归一化只处理总预算，
-    不保证权重非负。分母为零或负数时直接报错：负分母会反转全部符号，
+    w_i = a_i / Σa_i。若有 w_i < 0，令其为 0 后再除以剩余权重之和；
+    没有负权重时结果不变。最后按指定精度取整。分母为零或负数时直接报错：负分母会反转全部符号，
     使调整后最差的股票得到最大权重，而结果仍能通过合计与非负检查。
     分母为正但很小时权重可能被显著放大，需检查返回结果。
     """
@@ -58,8 +59,18 @@ def combine_weights(base, sentiment_adjustments, macro_adjustments, settings):
             f"Combined weights sum to {denominator:.6g}; normalizing a zero, negative or "
             "non-finite total would invert or break the allocation."
         )
+    raw = combined / denominator
+    # 归一化后的权重记为 raw_weight，便于追溯截断前的数值。
+    frame["raw_weight"] = raw
+    clipped = bool((raw < 0).any())
+    if clipped:
+        # 只做多：仅当出现负权重时，把负权重设为 0，其余按比例缩放到合计为 1；
+        # 没有负权重的期次保持原归一化结果不变。
+        raw = raw.clip(lower=0.0)
+        raw = raw / float(raw.sum())
     # 逐只股票取整会使合计略偏离 1；不把差额强制加到某一只股票上。
-    frame["final_weight"] = (combined / denominator).round(int(cfg["final_weight_decimals"]))
+    frame["final_weight"] = raw.round(int(cfg["final_weight_decimals"]))
+    frame.attrs["clipped"] = clipped
     if not np.isfinite(frame["final_weight"].to_numpy()).all():
         raise ValueError("Normalization produced non-finite weights.")
     frame.attrs["final_weight_decimals"] = int(cfg["final_weight_decimals"])

@@ -64,7 +64,7 @@ def run_full(data_dir: Path, output_dir: Path, risk_level: int | None = None) ->
     simulations = portfolio.simulate_portfolios(returns, settings)
     sentiment_results = sentiment.analyze_sentiment(inputs["news"], list(returns.columns), settings)
     macro_results = macro.analyze_macro(inputs["prices"], inputs["indicators"], settings)
-    # 三类权重按代码匹配，不能按行号直接相加；调整后可能出现负权重。
+    # 三类权重按代码匹配，不能按行号直接相加；调整后若出现负权重，截断为 0 再归一化。
     allocations = allocation.combine_weights(portfolio_results["base_weights"],
                                               sentiment_results["adjustments"],
                                               macro_results["adjustments"], settings)
@@ -86,7 +86,7 @@ def run_full(data_dir: Path, output_dir: Path, risk_level: int | None = None) ->
 
 
 def run_backtest(data_dir: Path, output_dir: Path, risk_level: int | None = None) -> dict:
-    """按月滚动回测完整配置流程，每期只使用信号日当时可获得的数据。
+    """按月滚动回测完整配置流程，每期按信号时点截取输入数据。
 
     读取与完整模式相同的原始输入；每个月末重新优化基础组合并计算情绪、
     宏观调整，按设定的成交滞后与交易成本模拟每日净值。同时输出等权、
@@ -110,7 +110,7 @@ def run_backtest(data_dir: Path, output_dir: Path, risk_level: int | None = None
     # NaN 转为 JSON null，避免输出非标准 JSON。
     metrics = result["metrics"].round(6).astype(object)
     metrics = metrics.where(metrics.notna(), None).to_dict(orient="index")
-    return {"mode": "backtest", "description": "按月滚动、逐期截取当时可得数据的历史回测。",
+    return {"mode": "backtest", "description": "按月滚动、按信号时点截取输入数据的历史回测。",
             "risk_level": settings["selected_risk_level"], **result["summary"],
             "metrics": metrics, "files": [str(p) for p in files]}
 

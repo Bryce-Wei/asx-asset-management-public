@@ -10,7 +10,7 @@ from asset_management.allocation import combine_weights, validate_weights
 
 
 class AllocationTests(unittest.TestCase):
-    """围绕资产对齐、归一化前提和空头保留规则验证组合配置。"""
+    """围绕资产对齐、归一化前提和负权重截断规则验证组合配置。"""
 
     def setUp(self):
         """构造合计为 1 的固定权重及零调整，作为各边界场景的共同基准。"""
@@ -64,16 +64,26 @@ class AllocationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "negative"):
             combine_weights(self.base, self.zero, adjustment, {})
 
-    def test_negative_weights_are_reported_without_silent_clipping(self):
-        """加法调整可产生空头；检查应报告负权重，同时保留合计约束。"""
+    def test_negative_weights_are_clipped_then_renormalized(self):
+        """只在出现负权重时截断为 0，其余权重按比例缩放到合计为 1。"""
         adjustment = pd.Series([-0.5, 0.5, 0.0], index=self.base.index)
         actual = combine_weights(self.base, adjustment, self.zero, {})
-        self.assertLess(actual.loc["SYN_A", "final_weight"], 0)
+        raw = actual["raw_weight"]
+        self.assertLess(raw["SYN_A"], 0)
+        self.assertTrue(actual.attrs["clipped"])
+        expected = raw.clip(lower=0) / raw.clip(lower=0).sum()
+        np.testing.assert_allclose(actual["final_weight"], expected.round(4))
         checks = validate_weights(actual)
-        self.assertTrue(checks["has_short_positions"])
-        self.assertFalse(checks["nonnegative"])
+        self.assertTrue(checks["nonnegative"])
+        self.assertFalse(checks["has_short_positions"])
         self.assertTrue(checks["sum_to_one"])
 
+    def test_nonnegative_results_are_unchanged(self):
+        """没有负权重时不截断，结果与普通归一化一致。"""
+        adjustment = pd.Series([0.05, -0.05, 0.0], index=self.base.index)
+        actual = combine_weights(self.base, adjustment, self.zero, {})
+        self.assertFalse(actual.attrs["clipped"])
+        np.testing.assert_allclose(actual["final_weight"], actual["raw_weight"].round(4))
 
 if __name__ == "__main__":
     unittest.main()

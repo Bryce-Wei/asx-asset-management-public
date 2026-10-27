@@ -90,7 +90,7 @@ def save_reports(
             else "Final portfolio allocation",
             loc="left", fontweight="bold", pad=16,
         )
-        # 坐标轴保留负权重，直观呈现调整后的空头，而不是在显示时截断。
+        # 最终权重已按只做多规则截断；若传入的权重含负数也照常显示，不在绘图时另作截断。
         ax.set_ylim(min(0, float(weights.min()) * 1.2), max(0.1, float(weights.max()) * 1.22))
         ax.set_axisbelow(True)
         ax.grid(axis="y", color="#E5EAF0")

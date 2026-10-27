@@ -1,4 +1,4 @@
-"""检查滚动回测的信息截止、调仓时点、净值计算和失败处理。"""
+"""检查滚动回测的信息截止、调仓时点、净值计算、负权重截断和失败处理。"""
 
 import unittest
 from contextlib import contextmanager
@@ -228,6 +228,28 @@ class FailureHandlingTests(unittest.TestCase):
             self.assertEqual(status[name], "held")
         self.assertEqual(result["summary"]["base_failures"], 1)
         self.assertTrue(np.isfinite(result["tables"]["backtest_nav"].to_numpy()).all())
+
+
+class LongOnlyClippingTests(unittest.TestCase):
+    """调整后出现负权重时截断为 0 再归一化；摘要统计调整期数和截断期数。"""
+
+    def test_negative_weights_are_clipped_and_counted(self):
+        """宏观调整把 CCC 压成负数：含宏观的版本每期截断，最终权重全部非负。"""
+        forced = {"adjustments": pd.Series({"AAA": 1.5, "BBB": 0.0, "CCC": -1.5})}
+        with fixed_vader(), patch.object(backtest.macro, "analyze_macro", return_value=forced):
+            result = run_backtest(synthetic_inputs(), TEST_SETTINGS)
+        summary = result["summary"]
+        periods = summary["periods"]
+        self.assertEqual(summary["overlay_adjusted_periods"]["base"], f"0/{periods}")
+        self.assertEqual(summary["clipped_periods"]["base"], f"0/{periods}")
+        for name in ("base_macro", "full"):
+            self.assertEqual(summary["overlay_adjusted_periods"][name], f"{periods}/{periods}")
+            self.assertEqual(summary["clipped_periods"][name], f"{periods}/{periods}")
+        weights = result["tables"]["backtest_weights"]
+        self.assertTrue((weights.to_numpy() >= 0).all())
+        full = weights.xs("full", level="variant")
+        self.assertTrue((full["CCC"] == 0).all())
+        np.testing.assert_allclose(full.sum(axis=1), 1.0, atol=5e-4)
 
 
 class MarketBenchmarkTests(unittest.TestCase):
